@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { JWTPayload } from './types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
+const BCRYPT_ROUNDS = 10;
 
 /**
  * Generate a JWT token for a user
@@ -60,4 +62,25 @@ export function isValidPhone(phone: string): boolean {
  */
 export function isValidName(name: string): boolean {
   return name.trim().length >= 2;
+}
+
+/**
+ * Validate PIN format (4 digits)
+ */
+export function isValidPIN(pin: string): boolean {
+  return /^[0-9]{4}$/.test(pin);
+}
+
+/**
+ * Hash a PIN using bcrypt
+ */
+export async function hashPIN(pin: string): Promise<string> {
+  return bcrypt.hash(pin, BCRYPT_ROUNDS);
+}
+
+/**
+ * Verify a PIN against its hash
+ */
+export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(pin, hash);
 }

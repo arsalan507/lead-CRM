@@ -3,80 +3,48 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-type Step = 'phone' | 'otp' | 'register';
+type Step = 'login' | 'register';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('phone');
+  const [step, setStep] = useState<Step>('login');
   const [phone, setPhone] = useState('');
-  const [otp, setOTP] = useState('');
+  const [pin, setPin] = useState('');
   const [name, setName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [requiresOrgSetup, setRequiresOrgSetup] = useState(false);
 
-  const handleRequestOTP = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/request-otp', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, pin }),
       });
 
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || 'Failed to send OTP');
+        // Check if it's a "not set up" error - might be first admin
+        if (response.status === 401 && data.error?.includes('not set up')) {
+          setStep('register');
+          setLoading(false);
+          return;
+        }
+
+        setError(data.error || 'Login failed');
         setLoading(false);
         return;
       }
 
-      // In development, auto-fill OTP
-      if (data.data?.otp) {
-        setOTP(data.data.otp);
-      }
-
-      setStep('otp');
-    } catch (err) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        setError(data.error || 'Invalid OTP');
-        setLoading(false);
-        return;
-      }
-
-      if (data.data.requiresRegistration) {
-        setStep('register');
-        setLoading(false);
-        return;
-      }
-
-      // Store token and redirect
+      // Store token and user data
       document.cookie = `auth_token=${data.data.token}; path=/; max-age=604800`; // 7 days
+      document.cookie = `user=${JSON.stringify(data.data.user)}; path=/; max-age=604800`;
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
       // Redirect based on role
@@ -104,7 +72,8 @@ export default function LoginPage() {
         body: JSON.stringify({
           phone,
           name,
-          organizationName: requiresOrgSetup ? organizationName : undefined,
+          organizationName,
+          pin,
         }),
       });
 
@@ -116,16 +85,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Store token and redirect
+      // Store token and user data
       document.cookie = `auth_token=${data.data.token}; path=/; max-age=604800`;
+      document.cookie = `user=${JSON.stringify(data.data.user)}; path=/; max-age=604800`;
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
-      // Redirect based on role
-      if (data.data.user.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/dashboard');
-      }
+      // Redirect to admin dashboard
+      router.push('/admin/dashboard');
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {
@@ -134,152 +100,161 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Lead CRM</h1>
-          <p className="text-gray-600">Sign in to continue</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            {step === 'login' ? 'Sign in to Lead CRM' : 'Create Organization'}
+          </h2>
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
           </div>
         )}
 
-        {step === 'phone' && (
-          <form onSubmit={handleRequestOTP}>
-            <div className="mb-6">
-              <label className="block text-gray-700 font-medium mb-2">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={10}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                className="w-full rounded-lg border-2 border-gray-300 p-4 text-lg focus:border-blue-500 focus:outline-none"
-                placeholder="10-digit mobile"
-                autoFocus
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || phone.length !== 10}
-              className="w-full bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Sending...' : 'Send OTP'}
-            </button>
-          </form>
-        )}
-
-        {step === 'otp' && (
-          <form onSubmit={handleVerifyOTP}>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-4">
-                OTP sent to {phone}
-                <button
-                  type="button"
-                  onClick={() => setStep('phone')}
-                  className="ml-2 text-blue-600 hover:underline"
-                >
-                  Change
-                </button>
-              </p>
-
-              <label className="block text-gray-700 font-medium mb-2">
-                Enter OTP
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOTP(e.target.value.replace(/\D/g, ''))}
-                className="w-full rounded-lg border-2 border-gray-300 p-4 text-lg text-center font-mono tracking-widest focus:border-blue-500 focus:outline-none"
-                placeholder="000000"
-                autoFocus
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || otp.length !== 6}
-              className="w-full bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleRequestOTP}
-              className="w-full mt-3 text-blue-600 hover:underline text-sm"
-            >
-              Resend OTP
-            </button>
-          </form>
-        )}
-
-        {step === 'register' && (
-          <form onSubmit={handleRegister}>
-            <div className="mb-4">
-              <label className="block text-gray-700 font-medium mb-2">
-                Your Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border-2 border-gray-300 p-4 text-lg focus:border-blue-500 focus:outline-none"
-                placeholder="Enter your name"
-                autoFocus
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="flex items-center">
+        {step === 'login' ? (
+          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+            <div className="rounded-md shadow-sm -space-y-px">
+              <div>
+                <label htmlFor="phone" className="sr-only">
+                  Phone Number
+                </label>
                 <input
-                  type="checkbox"
-                  checked={requiresOrgSetup}
-                  onChange={(e) => setRequiresOrgSetup(e.target.checked)}
-                  className="mr-2 w-4 h-4"
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  maxLength={10}
+                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Phone Number (10 digits)"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                 />
-                <span className="text-sm text-gray-700">
-                  I&apos;m setting up a new organization
-                </span>
-              </label>
+              </div>
+              <div>
+                <label htmlFor="pin" className="sr-only">
+                  4-Digit PIN
+                </label>
+                <input
+                  id="pin"
+                  name="pin"
+                  type="password"
+                  required
+                  maxLength={4}
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="4-Digit PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
             </div>
 
-            {requiresOrgSetup && (
-              <div className="mb-6">
-                <label className="block text-gray-700 font-medium mb-2">
+            <div>
+              <button
+                type="submit"
+                disabled={loading || phone.length !== 10 || pin.length !== 4}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form className="mt-8 space-y-6" onSubmit={handleRegister}>
+            <div className="text-sm text-gray-600 bg-blue-50 p-4 rounded">
+              You're the first user! Create your organization and set up your admin account.
+            </div>
+
+            <div className="rounded-md shadow-sm space-y-4">
+              <div>
+                <label htmlFor="org-name" className="block text-sm font-medium text-gray-700 mb-1">
                   Organization Name
                 </label>
                 <input
+                  id="org-name"
+                  name="org-name"
                   type="text"
+                  required
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Bharath Cycle Hub"
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
-                  className="w-full rounded-lg border-2 border-gray-300 p-4 text-lg focus:border-blue-500 focus:outline-none"
-                  placeholder="e.g., Bharath Cycle Hub"
-                  required
                 />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Creating account...' : 'Complete Registration'}
-            </button>
+              <div>
+                <label htmlFor="admin-name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Your Name
+                </label>
+                <input
+                  id="admin-name"
+                  name="admin-name"
+                  type="text"
+                  required
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Admin Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  id="admin-phone"
+                  name="admin-phone"
+                  type="tel"
+                  required
+                  maxLength={10}
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="10-digit phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-pin" className="block text-sm font-medium text-gray-700 mb-1">
+                  Create 4-Digit PIN
+                </label>
+                <input
+                  id="admin-pin"
+                  name="admin-pin"
+                  type="password"
+                  required
+                  maxLength={4}
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="4-digit PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                />
+                <p className="mt-1 text-xs text-gray-500">You'll use this PIN to login</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('login');
+                  setError('');
+                }}
+                className="flex-1 py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Back to Login
+              </button>
+              <button
+                type="submit"
+                disabled={loading || phone.length !== 10 || pin.length !== 4 || !name || !organizationName}
+                className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating...' : 'Create Organization'}
+              </button>
+            </div>
           </form>
         )}
       </div>

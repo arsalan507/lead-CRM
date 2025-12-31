@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { isValidPhone, isValidName, generateOTP, getOTPExpiry } from '@/lib/auth';
+import { isValidPhone, isValidName, isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
-import { sendSMS, formatInviteMessage } from '@/lib/sms';
 
 // Get all team members
 export async function GET(request: NextRequest) {
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { phone, name } = body;
+    const { phone, name, pin } = body;
 
     // Validation
     if (!phone || !isValidPhone(phone)) {
@@ -71,6 +70,13 @@ export async function POST(request: NextRequest) {
     if (!name || !isValidName(name)) {
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Name must be at least 2 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (!pin || !isValidPIN(pin)) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'PIN must be 4 digits' },
         { status: 400 }
       );
     }
@@ -89,7 +95,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user directly as sales rep (no OTP needed for admin-added users)
+    // Hash the PIN
+    const pinHash = await hashPIN(pin);
+
+    // Create user with PIN
     const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -97,6 +106,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         role: 'sales_rep',
         organization_id: organizationId,
+        pin_hash: pinHash,
       })
       .select()
       .single();
@@ -109,32 +119,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate OTP for first login
-    const otp = generateOTP();
-    const expiresAt = getOTPExpiry();
-
-    await supabaseAdmin.from('otp_verifications').insert({
-      phone,
-      otp,
-      expires_at: expiresAt.toISOString(),
-      verified: false,
-    });
-
-    // Send SMS with OTP to the new user
-    const smsResult = await sendSMS(phone, formatInviteMessage(name, otp));
-
-    if (!smsResult.success) {
-      console.error('SMS sending failed:', smsResult.error);
-      // Don't fail the request - admin can share OTP manually
-    }
-
     return NextResponse.json<APIResponse>({
       success: true,
-      message: 'Sales rep added successfully. OTP sent to their phone.',
+      message: 'Sales rep added successfully. They can now login with their phone and PIN.',
       data: {
-        user: newUser,
-        // For development only
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          phone: newUser.phone,
+          role: newUser.role,
+        },
       },
     });
   } catch (error) {

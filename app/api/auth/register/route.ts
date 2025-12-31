@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { generateToken, isValidPhone, isValidName } from '@/lib/auth';
+import { generateToken, isValidPhone, isValidName, isValidPIN, hashPIN } from '@/lib/auth';
 import { APIResponse } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phone, name, organizationName } = body;
+    const { phone, name, organizationName, pin } = body;
 
     // Validate inputs
     if (!phone || !isValidPhone(phone)) {
@@ -19,6 +19,13 @@ export async function POST(request: NextRequest) {
     if (!name || !isValidName(name)) {
       return NextResponse.json<APIResponse>(
         { success: false, error: 'Name must be at least 2 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (!pin || !isValidPIN(pin)) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'PIN must be 4 digits' },
         { status: 400 }
       );
     }
@@ -92,7 +99,10 @@ export async function POST(request: NextRequest) {
 
     await supabaseAdmin.from('categories').insert(categoriesData);
 
-    // Create admin user
+    // Hash the PIN
+    const pinHash = await hashPIN(pin);
+
+    // Create admin user with PIN
     const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -100,6 +110,7 @@ export async function POST(request: NextRequest) {
         name,
         role: 'admin',
         organization_id: newOrg.id,
+        pin_hash: pinHash,
         last_login: new Date().toISOString(),
       })
       .select()
