@@ -54,16 +54,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, whatsappPhoneNumberId, whatsappAccessToken, contactNumber } = body;
+    const { name, whatsappPhoneNumberId, whatsappAccessToken, contactNumber, logoUrl } = body;
 
     const updateData: any = {};
 
     if (name) updateData.name = name.trim();
-    if (contactNumber) updateData.contact_number = contactNumber;
+    if (contactNumber !== undefined) updateData.contact_number = contactNumber;
     if (whatsappPhoneNumberId !== undefined)
       updateData.whatsapp_phone_number_id = whatsappPhoneNumberId;
     if (whatsappAccessToken !== undefined)
       updateData.whatsapp_access_token = whatsappAccessToken;
+    if (logoUrl !== undefined) updateData.logo_url = logoUrl;
 
     const { data: organization, error } = await supabaseAdmin
       .from('organizations')

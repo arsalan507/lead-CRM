@@ -16,7 +16,9 @@ export default function AdminSettingsPage() {
   const [contactNumber, setContactNumber] = useState('');
   const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState('');
   const [whatsappAccessToken, setWhatsappAccessToken] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     fetchOrganization();
@@ -35,6 +37,7 @@ export default function AdminSettingsPage() {
         setContactNumber(org.contact_number || '');
         setWhatsappPhoneNumberId(org.whatsapp_phone_number_id || '');
         setWhatsappAccessToken(org.whatsapp_access_token || '');
+        setLogoUrl(org.logo_url || '');
       }
     } catch (error) {
       console.error('Error fetching organization:', error);
@@ -56,6 +59,42 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Logo must be less than 2MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+        setUploadingLogo(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read file');
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      alert('Failed to upload logo');
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSaveOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -69,6 +108,7 @@ export default function AdminSettingsPage() {
           contactNumber,
           whatsappPhoneNumberId,
           whatsappAccessToken,
+          logoUrl,
         }),
       });
 
@@ -144,6 +184,39 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-4">Organization Details</h2>
           <form onSubmit={handleSaveOrganization} className="space-y-4">
+            {/* Logo Upload */}
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">
+                Organization Logo
+              </label>
+              <div className="flex items-center gap-4">
+                {logoUrl && (
+                  <div className="w-24 h-24 border-2 border-gray-300 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                    <img
+                      src={logoUrl}
+                      alt="Organization Logo"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={uploadingLogo}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    PNG, JPG up to 2MB. Recommended: 200x200px
+                  </p>
+                  {uploadingLogo && (
+                    <p className="text-sm text-blue-600 mt-1">Uploading...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-gray-700 font-medium mb-2">
                 Organization Name
