@@ -1,0 +1,2 @@
+cp icon-192.png icon-512.png && 
+echo "✅ Icon files created"
