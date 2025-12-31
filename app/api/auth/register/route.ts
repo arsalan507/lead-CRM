@@ -30,6 +30,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate organization name is provided
+    if (!organizationName) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Organization name is required' },
+        { status: 400 }
+      );
+    }
+
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
@@ -40,30 +48,6 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       return NextResponse.json<APIResponse>(
         { success: false, error: 'User already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Check if any organizations exist
-    const { count: orgCount } = await supabaseAdmin
-      .from('organizations')
-      .select('*', { count: 'exact', head: true });
-
-    // Only allow registration if this is the FIRST organization (initial setup)
-    if (orgCount && orgCount > 0) {
-      return NextResponse.json<APIResponse>(
-        {
-          success: false,
-          error: 'Registration is closed. Please contact your administrator to create an account.',
-        },
-        { status: 403 }
-      );
-    }
-
-    // This is the first organization - allow registration
-    if (!organizationName) {
-      return NextResponse.json<APIResponse>(
-        { success: false, error: 'Organization name is required' },
         { status: 400 }
       );
     }

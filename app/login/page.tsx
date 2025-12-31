@@ -179,7 +179,7 @@ export default function LoginPage() {
         ) : (
           <form className="mt-8 space-y-6" onSubmit={handleRegister}>
             <div className="text-sm text-gray-600 bg-blue-50 p-4 rounded">
-              You're the first user! Create your organization and set up your admin account.
+              Create your organization and set up your admin account.
             </div>
 
             <div className="rounded-md shadow-sm space-y-4">
