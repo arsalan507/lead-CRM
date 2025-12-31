@@ -11,6 +11,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>('');
 
   useEffect(() => {
     // Check if redirected with success
@@ -26,6 +27,7 @@ function DashboardContent() {
     }
 
     fetchLeads();
+    fetchOrganizationLogo();
   }, [searchParams]);
 
   const fetchLeads = async () => {
@@ -40,6 +42,19 @@ function DashboardContent() {
       console.error('Error fetching leads:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrganizationLogo = async () => {
+    try {
+      const response = await fetch('/api/organization/logo');
+      const data = await response.json();
+
+      if (data.success && data.data?.logo_url) {
+        setLogoUrl(data.data.logo_url);
+      }
+    } catch (error) {
+      console.error('Error fetching organization logo:', error);
     }
   };
 
@@ -63,9 +78,20 @@ function DashboardContent() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">My Leads</h1>
-            {user && <p className="text-sm text-gray-500">{user.name}</p>}
+          <div className="flex items-center gap-3">
+            {logoUrl && (
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img
+                  src={logoUrl}
+                  alt="Organization Logo"
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">My Leads</h1>
+              {user && <p className="text-sm text-gray-500">{user.name}</p>}
+            </div>
           </div>
           <button
             onClick={handleLogout}

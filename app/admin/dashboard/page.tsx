@@ -17,6 +17,7 @@ export default function AdminDashboardPage() {
   const [salesReps, setSalesReps] = useState<SalesRepData[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [logoUrl, setLogoUrl] = useState<string>('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -32,7 +33,21 @@ export default function AdminDashboardPage() {
     }
 
     fetchAllLeads();
+    fetchOrganizationLogo();
   }, [router]);
+
+  const fetchOrganizationLogo = async () => {
+    try {
+      const response = await fetch('/api/organization/logo');
+      const data = await response.json();
+
+      if (data.success && data.data?.logo_url) {
+        setLogoUrl(data.data.logo_url);
+      }
+    } catch (error) {
+      console.error('Error fetching organization logo:', error);
+    }
+  };
 
   const fetchAllLeads = async () => {
     try {
@@ -125,9 +140,20 @@ export default function AdminDashboardPage() {
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-              {user && <p className="text-sm text-gray-600">{user.name}</p>}
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                <div className="w-10 h-10 flex items-center justify-center">
+                  <img
+                    src={logoUrl}
+                    alt="Organization Logo"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              )}
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+                {user && <p className="text-sm text-gray-600">{user.name}</p>}
+              </div>
             </div>
             <button
               onClick={handleLogout}
