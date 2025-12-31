@@ -13,6 +13,10 @@ export default function AdminTeamPage() {
 
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [newMemberPin, setNewMemberPin] = useState('');
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetNewPin, setResetNewPin] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     fetchTeam();
@@ -44,22 +48,18 @@ export default function AdminTeamPage() {
         body: JSON.stringify({
           name: newMemberName,
           phone: newMemberPhone,
+          pin: newMemberPin,
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert(
-          `Sales rep added successfully!\n\n${
-            data.data.otp
-              ? `Their OTP is: ${data.data.otp}\nShare this with ${newMemberName} to login.`
-              : 'OTP has been sent to their phone.'
-          }`
-        );
+        alert(`Sales rep added successfully!\n\nThey can now login with:\nPhone: ${newMemberPhone}\nPIN: ${newMemberPin}`);
         setTeamMembers([data.data.user, ...teamMembers]);
         setNewMemberName('');
         setNewMemberPhone('');
+        setNewMemberPin('');
         setShowAddForm(false);
       } else {
         alert(data.error || 'Failed to add team member');
@@ -68,6 +68,40 @@ export default function AdminTeamPage() {
       alert('Network error');
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleResetPin = async (userId: string) => {
+    if (!resetNewPin || resetNewPin.length !== 4) {
+      alert('PIN must be exactly 4 digits');
+      return;
+    }
+
+    setResetting(true);
+
+    try {
+      const response = await fetch('/api/admin/team/reset-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          newPin: resetNewPin,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`PIN reset successfully!\n\nNew PIN: ${resetNewPin}`);
+        setResetUserId(null);
+        setResetNewPin('');
+      } else {
+        alert(data.error || 'Failed to reset PIN');
+      }
+    } catch (error) {
+      alert('Network error');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -145,6 +179,27 @@ export default function AdminTeamPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">
+                  4-Digit PIN
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={newMemberPin}
+                  onChange={(e) =>
+                    setNewMemberPin(e.target.value.replace(/\D/g, ''))
+                  }
+                  className="w-full rounded-lg border-2 border-gray-300 p-3 focus:border-blue-500 focus:outline-none"
+                  placeholder="Set 4-digit PIN"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This PIN will be used for login. Share it securely with the sales rep.
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -152,6 +207,7 @@ export default function AdminTeamPage() {
                     setShowAddForm(false);
                     setNewMemberName('');
                     setNewMemberPhone('');
+                    setNewMemberPin('');
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 rounded-lg py-3 px-6 font-semibold hover:bg-gray-400"
                 >
@@ -159,7 +215,7 @@ export default function AdminTeamPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={adding}
+                  disabled={adding || newMemberPin.length !== 4}
                   className="flex-1 bg-blue-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-blue-700 disabled:bg-gray-300"
                 >
                   {adding ? 'Adding...' : 'Add Member'}
@@ -187,30 +243,77 @@ export default function AdminTeamPage() {
             <div className="divide-y">
               {teamMembers.map((member) => (
                 <div key={member.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg">{member.name}</h3>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            member.role === 'admin'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {member.role === 'admin' ? 'Admin' : 'Sales Rep'}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 mb-2">{member.phone}</p>
-                      <div className="text-sm text-gray-500">
-                        <div>
-                          Joined: {formatDate(member.created_at)}
+                  <div>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-lg">{member.name}</h3>
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              member.role === 'admin'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            {member.role === 'admin' ? 'Admin' : 'Sales Rep'}
+                          </span>
                         </div>
-                        <div>
-                          Last Login: {formatDate(member.last_login)}
+                        <p className="text-gray-600 mb-2">{member.phone}</p>
+                        <div className="text-sm text-gray-500">
+                          <div>
+                            Joined: {formatDate(member.created_at)}
+                          </div>
+                          <div>
+                            Last Login: {formatDate(member.last_login)}
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    {/* Reset PIN Section */}
+                    {resetUserId === member.id ? (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Reset PIN for {member.name}
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={resetNewPin}
+                            onChange={(e) =>
+                              setResetNewPin(e.target.value.replace(/\D/g, ''))
+                            }
+                            className="flex-1 rounded-lg border-2 border-gray-300 p-2 focus:border-blue-500 focus:outline-none text-sm"
+                            placeholder="New 4-digit PIN"
+                          />
+                          <button
+                            onClick={() => handleResetPin(member.id)}
+                            disabled={resetting || resetNewPin.length !== 4}
+                            className="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-green-700 disabled:bg-gray-300"
+                          >
+                            {resetting ? 'Resetting...' : 'Confirm'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResetUserId(null);
+                              setResetNewPin('');
+                            }}
+                            className="bg-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setResetUserId(member.id)}
+                        className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                      >
+                        Reset PIN
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
