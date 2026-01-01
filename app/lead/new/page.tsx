@@ -126,6 +126,7 @@ export default function NewLeadPage() {
           modelName: lostStep3Data.modelName,
           purchaseTimeline: data.purchaseTimeline,
           notTodayReason: data.notTodayReason,
+          otherReason: data.otherReason, // Custom reason text
         }),
       });
 

@@ -239,6 +239,7 @@ function DashboardContent() {
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Invoice/Model</th>
                     <th className="px-3 py-3 text-right font-semibold text-gray-700">Amount</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Timeline</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Reason</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Date</th>
                   </tr>
                 </thead>
@@ -278,6 +279,23 @@ function DashboardContent() {
                               : lead.purchase_timeline === '7_days'
                               ? '7 Days'
                               : '30 Days'
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-gray-700 text-sm">
+                          {isWin ? (
+                            <span className="text-gray-400">-</span>
+                          ) : lead.not_today_reason === 'other' && lead.other_reason ? (
+                            <span className="italic">Other: {lead.other_reason}</span>
+                          ) : lead.not_today_reason === 'need_family_approval' ? (
+                            'Need family approval'
+                          ) : lead.not_today_reason === 'price_high' ? (
+                            'Price concern'
+                          ) : lead.not_today_reason === 'want_more_options' ? (
+                            'Want more options'
+                          ) : lead.not_today_reason === 'just_browsing' ? (
+                            'Just browsing'
+                          ) : (
+                            <span className="text-gray-400">-</span>
                           )}
                         </td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">

@@ -9,7 +9,8 @@ export type NotTodayReason =
   | 'need_family_approval'
   | 'price_high'
   | 'want_more_options'
-  | 'just_browsing';
+  | 'just_browsing'
+  | 'other';
 
 export interface Organization {
   id: string;
@@ -56,6 +57,7 @@ export interface Lead {
   model_id?: string | null;
   purchase_timeline?: PurchaseTimeline | null;
   not_today_reason?: NotTodayReason | null;
+  other_reason?: string | null; // Custom reason text when not_today_reason is 'other'
 
   whatsapp_sent: boolean;
   whatsapp_sent_at: string | null;
@@ -127,6 +129,7 @@ export interface LostStep3Data {
 export interface LostStep4Data {
   purchaseTimeline: PurchaseTimeline;
   notTodayReason?: NotTodayReason;
+  otherReason?: string; // Custom reason text when notTodayReason is 'other'
 }
 
 // Legacy types for backward compatibility

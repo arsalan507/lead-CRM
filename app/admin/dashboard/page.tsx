@@ -110,6 +110,20 @@ export default function AdminDashboardPage() {
     router.push('/login');
   };
 
+  const formatReason = (lead: LeadWithDetails) => {
+    if (lead.status === 'win') return '';
+    if (lead.not_today_reason === 'other' && lead.other_reason) {
+      return `Other: ${lead.other_reason}`;
+    }
+    const reasonMap: Record<string, string> = {
+      need_family_approval: 'Need family approval',
+      price_high: 'Price concern',
+      want_more_options: 'Want more options',
+      just_browsing: 'Just browsing',
+    };
+    return reasonMap[lead.not_today_reason || ''] || lead.not_today_reason || '';
+  };
+
   const exportToCSV = (rep: SalesRepData) => {
     const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Date'];
     const rows = rep.leads.map((lead) => [
@@ -120,7 +134,7 @@ export default function AdminDashboardPage() {
       lead.status === 'win' ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown'),
       lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
       lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
-      lead.status === 'win' ? '' : (lead.not_today_reason || ''),
+      formatReason(lead),
       new Date(lead.created_at).toLocaleDateString('en-IN'),
     ]);
 
@@ -420,6 +434,9 @@ export default function AdminDashboardPage() {
                             Timeline
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Reason
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Date
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
@@ -456,6 +473,23 @@ export default function AdminDashboardPage() {
                               </td>
                               <td className="px-4 py-3 text-gray-900">
                                 {isWin ? 'Completed' : (lead.purchase_timeline || 'Unknown')}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700 text-sm">
+                                {isWin ? (
+                                  <span className="text-gray-400">-</span>
+                                ) : lead.not_today_reason === 'other' && lead.other_reason ? (
+                                  <span className="italic">Other: {lead.other_reason}</span>
+                                ) : lead.not_today_reason === 'need_family_approval' ? (
+                                  'Need family approval'
+                                ) : lead.not_today_reason === 'price_high' ? (
+                                  'Price concern'
+                                ) : lead.not_today_reason === 'want_more_options' ? (
+                                  'Want more options'
+                                ) : lead.not_today_reason === 'just_browsing' ? (
+                                  'Just browsing'
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-gray-500">
                                 {formatDate(lead.created_at)}

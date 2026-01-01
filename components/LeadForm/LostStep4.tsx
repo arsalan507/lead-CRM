@@ -22,6 +22,7 @@ const reasonOptions: { value: NotTodayReason; label: string }[] = [
   { value: 'price_high', label: 'Price concern' },
   { value: 'want_more_options', label: 'Want to see more options' },
   { value: 'just_browsing', label: 'Just looking around' },
+  { value: 'other', label: 'Other (specify below)' },
 ];
 
 export default function Step4({
@@ -36,6 +37,9 @@ export default function Step4({
   const [notTodayReason, setNotTodayReason] = useState<NotTodayReason | ''>(
     initialData?.notTodayReason || ''
   );
+  const [otherReason, setOtherReason] = useState<string>(
+    initialData?.otherReason || ''
+  );
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,9 +51,16 @@ export default function Step4({
       return;
     }
 
+    // If "Other" is selected, require custom text
+    if (notTodayReason === 'other' && !otherReason.trim()) {
+      setError('Please specify the reason');
+      return;
+    }
+
     onSubmit({
       purchaseTimeline,
       notTodayReason: purchaseTimeline !== 'today' ? (notTodayReason as NotTodayReason) : undefined,
+      otherReason: notTodayReason === 'other' ? otherReason.trim() : undefined,
     });
   };
 
@@ -80,6 +91,7 @@ export default function Step4({
                 setPurchaseTimeline(option.value);
                 if (option.value === 'today') {
                   setNotTodayReason('');
+                  setOtherReason('');
                 }
               }}
               className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-all ${
@@ -104,7 +116,12 @@ export default function Step4({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setNotTodayReason(option.value)}
+                onClick={() => {
+                  setNotTodayReason(option.value);
+                  if (option.value !== 'other') {
+                    setOtherReason('');
+                  }
+                }}
                 className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-all ${
                   notTodayReason === option.value
                     ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -115,6 +132,27 @@ export default function Step4({
               </button>
             ))}
           </div>
+
+          {/* Show text input when "Other" is selected */}
+          {notTodayReason === 'other' && (
+            <div className="mt-4">
+              <label className="block text-gray-700 font-medium mb-2">
+                Please specify the reason:
+              </label>
+              <textarea
+                value={otherReason}
+                onChange={(e) => setOtherReason(e.target.value)}
+                placeholder="e.g., Waiting for loan approval, need to check with dealer, etc."
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-600 focus:outline-none resize-none"
+                rows={3}
+                maxLength={200}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {otherReason.length}/200 characters
+              </p>
+            </div>
+          )}
+
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
         </div>
       )}
