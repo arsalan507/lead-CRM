@@ -58,6 +58,7 @@ export interface Lead {
   purchase_timeline?: PurchaseTimeline | null;
   not_today_reason?: NotTodayReason | null;
   other_reason?: string | null; // Custom reason text when not_today_reason is 'other'
+  lead_rating?: number | null; // Sales rep rating (1-5 stars) for likelihood of conversion - only for Lost leads
 
   whatsapp_sent: boolean;
   whatsapp_sent_at: string | null;
@@ -130,6 +131,7 @@ export interface LostStep4Data {
   purchaseTimeline: PurchaseTimeline;
   notTodayReason?: NotTodayReason;
   otherReason?: string; // Custom reason text when notTodayReason is 'other'
+  leadRating?: number; // Sales rep rating (1-5 stars) for likelihood of conversion
 }
 
 // Legacy types for backward compatibility
