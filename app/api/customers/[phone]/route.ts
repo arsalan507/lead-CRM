@@ -4,10 +4,10 @@ import { APIResponse } from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { phone: string } }
+  { params }: { params: Promise<{ phone: string }> }
 ) {
   try {
-    const phone = params.phone;
+    const { phone } = await params;
 
     // Get organization ID from cookie/header
     const authToken = request.cookies.get('auth_token')?.value;
