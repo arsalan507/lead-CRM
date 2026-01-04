@@ -115,7 +115,7 @@ export default function LoginPage() {
         {/* Logo and branding */}
         <div className="text-center">
           <div className="flex items-center justify-center mb-6">
-            <img src="/2xg-logo.png" alt="2XG EARN Logo" className="h-16" />
+            <img src="/logo.png" alt="2XG EARN Logo" className="h-16" />
           </div>
           <h2 className="text-center text-2xl font-bold text-gray-800">
             {step === 'login' ? 'Sign in' : 'Create Organization'}
