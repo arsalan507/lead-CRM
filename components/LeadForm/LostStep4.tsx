@@ -40,6 +40,9 @@ export default function Step4({
   const [otherReason, setOtherReason] = useState<string>(
     initialData?.otherReason || ''
   );
+  const [leadRating, setLeadRating] = useState<number>(
+    initialData?.leadRating || 0
+  );
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,10 +60,17 @@ export default function Step4({
       return;
     }
 
+    // Require rating for Lost leads (when timeline is not "today")
+    if (purchaseTimeline !== 'today' && !leadRating) {
+      setError('Please rate the likelihood of this lead converting');
+      return;
+    }
+
     onSubmit({
       purchaseTimeline,
       notTodayReason: purchaseTimeline !== 'today' ? (notTodayReason as NotTodayReason) : undefined,
       otherReason: notTodayReason === 'other' ? otherReason.trim() : undefined,
+      leadRating: purchaseTimeline !== 'today' ? leadRating : undefined,
     });
   };
 
@@ -154,6 +164,44 @@ export default function Step4({
           )}
 
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        </div>
+      )}
+
+      {/* 5-Star Rating - only for Lost leads */}
+      {purchaseTimeline !== 'today' && (
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2">
+            How likely is this customer to convert?
+          </label>
+          <p className="text-sm text-gray-600 mb-3">
+            Rate from 1 (unlikely) to 5 (very likely)
+          </p>
+          <div className="flex justify-center gap-2">
+            {[1, 2, 3, 4, 5].map((rating) => (
+              <button
+                key={rating}
+                type="button"
+                onClick={() => setLeadRating(rating)}
+                className={`text-5xl transition-all transform hover:scale-110 ${
+                  leadRating >= rating
+                    ? 'text-yellow-400 drop-shadow-lg'
+                    : 'text-gray-300 hover:text-yellow-200'
+                }`}
+                aria-label={`Rate ${rating} star${rating > 1 ? 's' : ''}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          {leadRating > 0 && (
+            <p className="text-center text-sm text-gray-600 mt-2">
+              {leadRating === 5 && '⭐ Very likely to convert'}
+              {leadRating === 4 && '👍 Good chance of converting'}
+              {leadRating === 3 && '🤔 Moderate chance'}
+              {leadRating === 2 && '👎 Low chance'}
+              {leadRating === 1 && '❄️ Unlikely to convert'}
+            </p>
+          )}
         </div>
       )}
 

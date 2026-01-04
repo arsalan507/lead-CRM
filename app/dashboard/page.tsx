@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LeadWithDetails } from '@/lib/types';
+import LeadScoreBadge from '@/components/LeadScoreBadge';
 
 // Force dynamic rendering - don't prerender this page
 export const dynamic = 'force-dynamic';
@@ -158,14 +159,57 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* Action Button */}
+      {/* Action Buttons */}
       <div className="max-w-7xl mx-auto px-4 py-4">
-        <button
-          onClick={() => router.push('/lead/new')}
-          className="w-full bg-blue-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-blue-700 shadow-md"
-        >
-          + Create New Lead
-        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Create New Lead - Primary Action */}
+          <button
+            onClick={() => router.push('/lead/new')}
+            className="bg-blue-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-blue-700 shadow-md transition-colors"
+          >
+            1. CREATE NEW LEAD
+          </button>
+
+          {/* Check My Incentive */}
+          <button
+            onClick={() => alert('Coming soon: Check My Incentive')}
+            className="bg-green-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-green-700 shadow-md transition-colors"
+          >
+            2. CHECK MY INCENTIVE
+          </button>
+
+          {/* Apply for SME */}
+          <button
+            onClick={() => alert('Coming soon: Apply for SME')}
+            className="bg-purple-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-purple-700 shadow-md transition-colors"
+          >
+            3. APPLY FOR SME
+          </button>
+
+          {/* Apply for Promotion */}
+          <button
+            onClick={() => alert('Coming soon: Apply for Promotion')}
+            className="bg-orange-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-orange-700 shadow-md transition-colors"
+          >
+            4. APPLY FOR PROMOTION
+          </button>
+
+          {/* My Referral Earnings */}
+          <button
+            onClick={() => alert('Coming soon: My Referral Earnings')}
+            className="bg-indigo-600 text-white rounded-lg py-3 px-6 font-semibold hover:bg-indigo-700 shadow-md transition-colors"
+          >
+            5. MY REFERRAL EARNINGS
+          </button>
+
+          {/* Reports */}
+          <button
+            onClick={() => alert('Coming soon: Reports')}
+            className="bg-gray-700 text-white rounded-lg py-3 px-6 font-semibold hover:bg-gray-800 shadow-md transition-colors"
+          >
+            6. REPORTS
+          </button>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -240,6 +284,7 @@ function DashboardContent() {
                     <th className="px-3 py-3 text-right font-semibold text-gray-700">Amount</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Timeline</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Reason</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-700">Lead Score</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-700">Date</th>
                   </tr>
                 </thead>
@@ -297,6 +342,9 @@ function DashboardContent() {
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <LeadScoreBadge lead={lead} />
                         </td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
                           {new Date(lead.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}

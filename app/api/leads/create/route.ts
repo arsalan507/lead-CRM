@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       purchaseTimeline,
       notTodayReason,
       otherReason, // Custom reason text when notTodayReason is 'other'
+      leadRating, // 5-star rating (1-5)
     } = body;
 
     console.log('Creating lead with status:', status);
@@ -214,6 +215,7 @@ export async function POST(request: NextRequest) {
         purchase_timeline: purchaseTimeline,
         not_today_reason: purchaseTimeline !== 'today' ? notTodayReason : null,
         other_reason: notTodayReason === 'other' && otherReason ? otherReason.trim() : null,
+        lead_rating: purchaseTimeline !== 'today' && leadRating ? parseInt(leadRating) : null,
         // Set Win fields to null for Lost leads
         invoice_no: null,
         sale_price: null,

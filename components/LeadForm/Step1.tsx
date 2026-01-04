@@ -31,9 +31,16 @@ export default function Step1({ initialData, onNext }: Step1Props) {
         try {
           const user = localStorage.getItem('user');
           if (user) {
-            const { organization_id } = JSON.parse(user);
+            const userData = JSON.parse(user);
+            const orgId = userData.organization_id || userData.organizationId;
+
+            if (!orgId) {
+              console.error('No organization ID found in user data');
+              return;
+            }
+
             const response = await fetch(
-              `/api/customers/check-phone?phone=${phone}&orgId=${organization_id}`
+              `/api/customers/check-phone?phone=${phone}&orgId=${orgId}`
             );
             const data = await response.json();
 

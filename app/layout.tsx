@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "Lead CRM - Sales Portal",
   description: "Multi-tenant Lead CRM system for sales representatives",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/2xg-logo.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -27,7 +31,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#3b82f6",
+  themeColor: "#16a34a",
 };
 
 export default function RootLayout({

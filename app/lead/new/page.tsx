@@ -127,6 +127,7 @@ export default function NewLeadPage() {
           purchaseTimeline: data.purchaseTimeline,
           notTodayReason: data.notTodayReason,
           otherReason: data.otherReason, // Custom reason text
+          leadRating: data.leadRating, // 5-star rating
         }),
       });
 

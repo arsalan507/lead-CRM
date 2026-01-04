@@ -6,9 +6,12 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LeadWithDetails } from '@/lib/types';
+import LeadScoreBadge from '@/components/LeadScoreBadge';
+import { calculateLeadScore, getLeadScoreCategory } from '@/lib/lead-score';
 
 type FilterStatus = 'all' | 'win' | 'lost';
 type SortBy = 'date' | 'amount' | 'name';
+type DateFilter = 'all' | 'today' | 'last7days' | 'last30days' | 'custom';
 
 interface SalesRepData {
   id: string;
@@ -29,6 +32,9 @@ export default function AdminDashboardPage() {
   const [filterRep, setFilterRep] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -125,18 +131,24 @@ export default function AdminDashboardPage() {
   };
 
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Date'];
-    const rows = rep.leads.map((lead) => [
-      lead.customer_name,
-      lead.customer_phone,
-      lead.status?.toUpperCase() || 'UNKNOWN',
-      lead.category_name || '',
-      lead.status === 'win' ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown'),
-      lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
-      lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
-      formatReason(lead),
-      new Date(lead.created_at).toLocaleDateString('en-IN'),
-    ]);
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Lead Score', 'Date'];
+    const rows = rep.leads.map((lead) => {
+      const score = lead.status === 'lost' ? calculateLeadScore(lead) : 0;
+      const category = lead.status === 'lost' ? getLeadScoreCategory(score) : null;
+
+      return [
+        lead.customer_name,
+        lead.customer_phone,
+        lead.status?.toUpperCase() || 'UNKNOWN',
+        lead.category_name || '',
+        lead.status === 'win' ? (lead.invoice_no || 'N/A') : (lead.model_name || 'Unknown'),
+        lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
+        lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
+        formatReason(lead),
+        lead.status === 'lost' ? `${category?.label} (${score})` : '-',
+        new Date(lead.created_at).toLocaleDateString('en-IN'),
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -195,6 +207,35 @@ export default function AdminDashboardPage() {
         filteredLeads = filteredLeads.filter(lead => lead.status === filterStatus);
       }
 
+      // Apply date filter
+      if (dateFilter !== 'all') {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        filteredLeads = filteredLeads.filter(lead => {
+          const leadDate = new Date(lead.created_at);
+          const leadDateOnly = new Date(leadDate.getFullYear(), leadDate.getMonth(), leadDate.getDate());
+
+          if (dateFilter === 'today') {
+            return leadDateOnly.getTime() === today.getTime();
+          } else if (dateFilter === 'last7days') {
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            return leadDateOnly >= sevenDaysAgo;
+          } else if (dateFilter === 'last30days') {
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            return leadDateOnly >= thirtyDaysAgo;
+          } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
+            const startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999); // Include the entire end date
+            return leadDate >= startDate && leadDate <= endDate;
+          }
+          return true;
+        });
+      }
+
       // Apply search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -236,7 +277,7 @@ export default function AdminDashboardPage() {
     result = result.filter(rep => rep.totalLeads > 0);
 
     setFilteredSalesReps(result);
-  }, [salesReps, filterStatus, filterRep, sortBy, searchQuery]);
+  }, [salesReps, filterStatus, filterRep, sortBy, searchQuery, dateFilter, customStartDate, customEndDate]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -304,7 +345,7 @@ export default function AdminDashboardPage() {
           <>
             {/* Filters and Search */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 {/* Search */}
                 <div>
                   <input
@@ -345,6 +386,28 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
+                {/* Filter by Date */}
+                <div>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => {
+                      const value = e.target.value as DateFilter;
+                      setDateFilter(value);
+                      if (value !== 'custom') {
+                        setCustomStartDate('');
+                        setCustomEndDate('');
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Dates</option>
+                    <option value="today">📅 Today</option>
+                    <option value="last7days">📅 Last 7 Days</option>
+                    <option value="last30days">📅 Last 30 Days</option>
+                    <option value="custom">📅 Custom Range</option>
+                  </select>
+                </div>
+
                 {/* Sort By */}
                 <div>
                   <select
@@ -359,11 +422,39 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* Custom Date Range Inputs */}
+              {dateFilter === 'custom' && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Results count */}
               <div className="mt-3 text-sm text-gray-600">
                 Showing {filteredSalesReps.reduce((sum, rep) => sum + rep.totalLeads, 0)} leads
                 {filterRep !== 'all' && ` from ${filteredSalesReps.find(r => r.id === filterRep)?.name}`}
                 {filterStatus !== 'all' && ` (${filterStatus === 'win' ? 'Win' : 'Lost'} only)`}
+                {dateFilter === 'today' && ' (Today)'}
+                {dateFilter === 'last7days' && ' (Last 7 Days)'}
+                {dateFilter === 'last30days' && ' (Last 30 Days)'}
+                {dateFilter === 'custom' && customStartDate && customEndDate && ` (${new Date(customStartDate).toLocaleDateString('en-IN')} - ${new Date(customEndDate).toLocaleDateString('en-IN')})`}
               </div>
             </div>
 
@@ -437,6 +528,9 @@ export default function AdminDashboardPage() {
                             Reason
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Lead Score
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Date
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
@@ -490,6 +584,9 @@ export default function AdminDashboardPage() {
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <LeadScoreBadge lead={lead} />
                               </td>
                               <td className="px-4 py-3 text-gray-500">
                                 {formatDate(lead.created_at)}

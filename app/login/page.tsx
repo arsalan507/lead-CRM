@@ -100,22 +100,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {step === 'login' ? 'Sign in to Lead CRM' : 'Create Organization'}
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
+      {/* Green gradient background matching 2XG EARN landing page */}
+      <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-amber-50"></div>
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(22, 163, 74, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(22, 163, 74, 0.03) 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }}
+      ></div>
+
+      <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Logo and branding */}
+        <div className="text-center">
+          <div className="flex items-center justify-center mb-6">
+            <img src="/2xg-logo.png" alt="2XG EARN Logo" className="h-16" />
+          </div>
+          <h2 className="text-center text-2xl font-bold text-gray-800">
+            {step === 'login' ? 'Sign in' : 'Create Organization'}
           </h2>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-sm">
             {error}
           </div>
         )}
 
         {step === 'login' ? (
-          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <form className="mt-8 space-y-6 bg-white rounded-2xl shadow-xl p-8 border border-gray-100" onSubmit={handleLogin}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
                 <label htmlFor="phone" className="sr-only">
@@ -127,7 +141,7 @@ export default function LoginPage() {
                   type="tel"
                   required
                   maxLength={10}
-                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 focus:z-10 sm:text-sm"
                   placeholder="Phone Number (10 digits)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
@@ -143,7 +157,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   maxLength={4}
-                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 focus:z-10 sm:text-sm"
                   placeholder="4-Digit PIN"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
@@ -155,7 +169,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || phone.length !== 10 || pin.length !== 4}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
@@ -170,15 +184,15 @@ export default function LoginPage() {
                   setPhone('');
                   setPin('');
                 }}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-green-700 hover:text-green-800 font-semibold"
               >
                 Don't have an account? Sign up
               </button>
             </div>
           </form>
         ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-            <div className="text-sm text-gray-600 bg-blue-50 p-4 rounded">
+          <form className="mt-8 space-y-6 bg-white rounded-2xl shadow-xl p-8 border border-gray-100" onSubmit={handleRegister}>
+            <div className="text-sm text-gray-700 bg-green-50 border border-green-100 p-4 rounded-lg">
               Create your organization and set up your admin account.
             </div>
 
@@ -192,7 +206,7 @@ export default function LoginPage() {
                   name="org-name"
                   type="text"
                   required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 sm:text-sm"
                   placeholder="Enter organization name"
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
@@ -208,7 +222,7 @@ export default function LoginPage() {
                   name="admin-name"
                   type="text"
                   required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 sm:text-sm"
                   placeholder="Admin Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -225,7 +239,7 @@ export default function LoginPage() {
                   type="tel"
                   required
                   maxLength={10}
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 sm:text-sm"
                   placeholder="10-digit phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
@@ -242,7 +256,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   maxLength={4}
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-600 focus:border-green-600 sm:text-sm"
                   placeholder="4-digit PIN"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
@@ -258,14 +272,14 @@ export default function LoginPage() {
                   setStep('login');
                   setError('');
                 }}
-                className="flex-1 py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="flex-1 py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600"
               >
                 Back to Login
               </button>
               <button
                 type="submit"
                 disabled={loading || phone.length !== 10 || pin.length !== 4 || !name || !organizationName}
-                className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
               >
                 {loading ? 'Creating...' : 'Create Organization'}
               </button>
