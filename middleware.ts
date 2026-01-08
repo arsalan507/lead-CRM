@@ -4,10 +4,15 @@ import type { NextRequest } from 'next/server';
 // Define public routes that don't require authentication
 const publicRoutes = [
   '/login',
+  '/customer',
   '/api/auth/login',
   '/api/auth/request-otp',
   '/api/auth/verify-otp',
   '/api/auth/register',
+  '/api/customers',
+  '/api/leads/check-invoice',
+  '/api/leads/update-review-status',
+  '/api/organization/logo',
 ];
 
 export function middleware(request: NextRequest) {
