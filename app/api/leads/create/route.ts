@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
         ...leadData,
         invoice_no: invoiceNo.trim(),
         sale_price: price,
+        review_status: 'pending', // Initialize as pending for WIN leads
         // Set Lost fields to null for Win leads
         deal_size: null,
         model_id: null,

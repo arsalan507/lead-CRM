@@ -190,6 +190,23 @@ COMMENT ON TABLE whatsapp_credentials IS 'Stores WhatsApp Cloud API credentials 
 COMMENT ON TABLE whatsapp_message_logs IS 'Logs all WhatsApp messages sent through the platform';
 
 
+-- ----------------------------------------------------------------------------
+-- 6. INCENTIVE TRACKING
+-- Date: 2026-01-09
+-- Purpose: Track whether sales reps receive incentive for Win leads
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE leads
+  ADD COLUMN IF NOT EXISTS has_incentive BOOLEAN DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS incentive_amount DECIMAL(10, 2) DEFAULT NULL;
+
+COMMENT ON COLUMN leads.has_incentive IS 'Whether the sales rep receives incentive for this lead (NULL = not set, false = no, true = yes)';
+COMMENT ON COLUMN leads.incentive_amount IS 'The incentive amount for this lead (only set if has_incentive = true)';
+
+-- Create index for filtering
+CREATE INDEX IF NOT EXISTS idx_leads_incentive ON leads(has_incentive) WHERE has_incentive IS NOT NULL;
+
+
 -- ============================================================================
 -- VERIFICATION
 -- ============================================================================
@@ -204,6 +221,7 @@ SELECT 'Migration completed successfully!' as status,
 -- 3. ✅ Category display order support added
 -- 4. ✅ WhatsApp credentials table created with RLS
 -- 5. ✅ WhatsApp message logging table created with indexes
+-- 6. ✅ Incentive tracking added to leads
 
 -- ============================================================================
 -- END OF MIGRATION

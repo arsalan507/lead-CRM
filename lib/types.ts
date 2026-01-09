@@ -56,6 +56,7 @@ export interface Lead {
   invoice_no?: string | null;
   sale_price?: number | null;
   review_status?: ReviewStatus | null; // Review tracking for Win leads
+  reviewed_by?: string | null; // User ID of who reviewed the lead
 
   // Lost-specific fields
   deal_size?: number | null;
@@ -64,6 +65,10 @@ export interface Lead {
   not_today_reason?: NotTodayReason | null;
   other_reason?: string | null; // Custom reason text when not_today_reason is 'other'
   lead_rating?: number | null; // Sales rep rating (1-5 stars) for likelihood of conversion - only for Lost leads
+
+  // Incentive fields
+  has_incentive?: boolean | null; // null = not set, false = no incentive, true = has incentive
+  incentive_amount?: number | null; // The incentive amount (only set if has_incentive = true)
 
   whatsapp_sent: boolean;
   whatsapp_sent_at: string | null;

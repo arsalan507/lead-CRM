@@ -35,6 +35,10 @@ export default function AdminDashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [editingIncentive, setEditingIncentive] = useState<string | null>(null);
+  const [incentiveAmount, setIncentiveAmount] = useState<string>('');
+  const [showIncentiveModal, setShowIncentiveModal] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<LeadWithDetails | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -91,13 +95,17 @@ export default function AdminDashboardPage() {
       return acc;
     }, {});
 
-    const repsData: SalesRepData[] = Object.entries(grouped).map(([repId, repLeads]) => ({
-      id: repId,
-      name: repLeads[0]?.sales_rep_name || 'Unknown',
-      leads: repLeads,
-      totalLeads: repLeads.length,
-      expanded: false,
-    }));
+    const repsData: SalesRepData[] = Object.entries(grouped).map(([repId, repLeads]) => {
+      // Preserve the expanded state if this rep already exists
+      const existingRep = salesReps.find(rep => rep.id === repId);
+      return {
+        id: repId,
+        name: repLeads[0]?.sales_rep_name || 'Unknown',
+        leads: repLeads,
+        totalLeads: repLeads.length,
+        expanded: existingRep?.expanded || false,
+      };
+    });
 
     setSalesReps(repsData);
   };
@@ -130,11 +138,49 @@ export default function AdminDashboardPage() {
     return reasonMap[lead.not_today_reason || ''] || lead.not_today_reason || '';
   };
 
+  const handleIncentiveUpdate = async (leadId: string, hasIncentive: boolean | null, amount?: number) => {
+    try {
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          has_incentive: hasIncentive,
+          incentive_amount: amount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the leads list without navigation
+        await fetchAllLeads();
+        return true;
+      } else {
+        alert(`Failed to update incentive: ${data.error || 'Unknown error'}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating incentive:', error);
+      alert('Failed to update incentive. Please try again.');
+      return false;
+    }
+  };
+
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Date'];
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Incentive', 'Date'];
     const rows = rep.leads.map((lead) => {
       const score = lead.status === 'lost' ? calculateLeadScore(lead) : 0;
       const category = lead.status === 'lost' ? getLeadScoreCategory(score) : null;
+
+      let incentiveText = '-';
+      if (lead.has_incentive === true && lead.incentive_amount) {
+        incentiveText = `Yes - ₹${lead.incentive_amount}`;
+      } else if (lead.has_incentive === false) {
+        incentiveText = 'No';
+      }
 
       return [
         lead.customer_name,
@@ -147,6 +193,7 @@ export default function AdminDashboardPage() {
         formatReason(lead),
         lead.status === 'win' ? (lead.review_status === 'reviewed' ? 'Reviewed' : lead.review_status === 'yet_to_review' ? 'Yet to Review' : 'Pending') : '-',
         lead.status === 'lost' ? `${category?.label} (${score})` : '-',
+        incentiveText,
         new Date(lead.created_at).toLocaleDateString('en-IN'),
       ];
     });
@@ -535,6 +582,9 @@ export default function AdminDashboardPage() {
                             Lead Score
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Incentive
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Date
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
@@ -611,6 +661,44 @@ export default function AdminDashboardPage() {
                               <td className="px-4 py-3">
                                 <LeadScoreBadge lead={lead} />
                               </td>
+                              <td className="px-4 py-3">
+                                {!isWin ? (
+                                  // Lost leads - always show "No"
+                                  <span className="text-gray-500">No</span>
+                                ) : lead.has_incentive === null || lead.has_incentive === undefined ? (
+                                  // Initial state - show Yes/No buttons (Win leads only)
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await handleIncentiveUpdate(lead.id, false);
+                                      }}
+                                      className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-xs font-semibold"
+                                    >
+                                      No
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLead(lead);
+                                        setIncentiveAmount('');
+                                        setShowIncentiveModal(true);
+                                      }}
+                                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold"
+                                    >
+                                      Yes
+                                    </button>
+                                  </div>
+                                ) : lead.has_incentive === false ? (
+                                  // No incentive
+                                  <span className="text-gray-600">No</span>
+                                ) : (
+                                  // Show amount
+                                  <span className="text-green-600 font-semibold">
+                                    ₹{lead.incentive_amount?.toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </td>
                               <td className="px-4 py-3 text-gray-500">
                                 {formatDate(lead.created_at)}
                               </td>
@@ -639,6 +727,80 @@ export default function AdminDashboardPage() {
           </>
         )}
       </div>
+
+      {/* Incentive Modal */}
+      {showIncentiveModal && selectedLead && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Set Incentive Amount</h3>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Customer:</span>
+                <span className="font-semibold text-gray-900">{selectedLead.customer_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Category:</span>
+                <span className="font-semibold text-gray-900">{selectedLead.category_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Lead Amount:</span>
+                <span className="font-semibold text-green-600">
+                  ₹{(selectedLead.sale_price || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Incentive Amount
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600 text-lg">₹</span>
+                <input
+                  type="number"
+                  value={incentiveAmount}
+                  onChange={(e) => setIncentiveAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowIncentiveModal(false);
+                  setSelectedLead(null);
+                  setIncentiveAmount('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const amount = parseFloat(incentiveAmount);
+                  if (!isNaN(amount) && amount > 0) {
+                    const success = await handleIncentiveUpdate(selectedLead.id, true, amount);
+                    if (success) {
+                      setShowIncentiveModal(false);
+                      setSelectedLead(null);
+                      setIncentiveAmount('');
+                    }
+                  } else {
+                    alert('Please enter a valid amount');
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { invoiceNo, reviewStatus } = body;
 
+    // Get the user ID from headers (set by middleware)
+    const userId = request.headers.get('x-user-id');
+
     // Validate inputs
     if (!invoiceNo) {
       return NextResponse.json<APIResponse>(
@@ -22,10 +25,23 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Prepare update data
+    const updateData: any = {
+      review_status: reviewStatus,
+    };
+
+    // If marking as reviewed, record who reviewed it
+    if (reviewStatus === 'reviewed' && userId) {
+      updateData.reviewed_by = userId;
+    } else if (reviewStatus === 'yet_to_review') {
+      // If unmarking, clear the reviewer
+      updateData.reviewed_by = null;
+    }
+
     // Update the lead's review status (no organization_id check needed, invoice_no is unique)
     const { data: lead, error } = await supabaseAdmin
       .from('leads')
-      .update({ review_status: reviewStatus })
+      .update(updateData)
       .eq('invoice_no', invoiceNo)
       .eq('status', 'win')
       .select()
