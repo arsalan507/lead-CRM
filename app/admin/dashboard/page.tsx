@@ -35,6 +35,16 @@ export default function AdminDashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [editingIncentive, setEditingIncentive] = useState<string | null>(null);
+  const [incentiveAmount, setIncentiveAmount] = useState<string>('');
+  const [showIncentiveModal, setShowIncentiveModal] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<LeadWithDetails | null>(null);
+
+  // Bulk selection state
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [deletedLeads, setDeletedLeads] = useState<LeadWithDetails[]>([]);
+  const [undoTimeoutId, setUndoTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -91,13 +101,17 @@ export default function AdminDashboardPage() {
       return acc;
     }, {});
 
-    const repsData: SalesRepData[] = Object.entries(grouped).map(([repId, repLeads]) => ({
-      id: repId,
-      name: repLeads[0]?.sales_rep_name || 'Unknown',
-      leads: repLeads,
-      totalLeads: repLeads.length,
-      expanded: false,
-    }));
+    const repsData: SalesRepData[] = Object.entries(grouped).map(([repId, repLeads]) => {
+      // Preserve the expanded state if this rep already exists
+      const existingRep = salesReps.find(rep => rep.id === repId);
+      return {
+        id: repId,
+        name: repLeads[0]?.sales_rep_name || 'Unknown',
+        leads: repLeads,
+        totalLeads: repLeads.length,
+        expanded: existingRep?.expanded || false,
+      };
+    });
 
     setSalesReps(repsData);
   };
@@ -130,11 +144,49 @@ export default function AdminDashboardPage() {
     return reasonMap[lead.not_today_reason || ''] || lead.not_today_reason || '';
   };
 
+  const handleIncentiveUpdate = async (leadId: string, hasIncentive: boolean | null, amount?: number) => {
+    try {
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          has_incentive: hasIncentive,
+          incentive_amount: amount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the leads list without navigation
+        await fetchAllLeads();
+        return true;
+      } else {
+        alert(`Failed to update incentive: ${data.error || 'Unknown error'}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating incentive:', error);
+      alert('Failed to update incentive. Please try again.');
+      return false;
+    }
+  };
+
   const exportToCSV = (rep: SalesRepData) => {
-    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Lead Score', 'Date'];
+    const headers = ['Customer Name', 'Phone', 'Status', 'Category', 'Model/Invoice', 'Amount', 'Timeline', 'Reason', 'Review Status', 'Lead Score', 'Incentive', 'Date'];
     const rows = rep.leads.map((lead) => {
       const score = lead.status === 'lost' ? calculateLeadScore(lead) : 0;
       const category = lead.status === 'lost' ? getLeadScoreCategory(score) : null;
+
+      let incentiveText = '-';
+      if (lead.has_incentive === true && lead.incentive_amount) {
+        incentiveText = `Yes - ₹${lead.incentive_amount}`;
+      } else if (lead.has_incentive === false) {
+        incentiveText = 'No';
+      }
 
       return [
         lead.customer_name,
@@ -145,7 +197,9 @@ export default function AdminDashboardPage() {
         lead.status === 'win' ? (lead.sale_price || 0) : (lead.deal_size || 0),
         lead.status === 'win' ? 'Completed' : (lead.purchase_timeline || 'Unknown'),
         formatReason(lead),
+        lead.status === 'win' ? (lead.review_status === 'reviewed' ? 'Reviewed' : lead.review_status === 'yet_to_review' ? 'Yet to Review' : 'Pending') : '-',
         lead.status === 'lost' ? `${category?.label} (${score})` : '-',
+        incentiveText,
         new Date(lead.created_at).toLocaleDateString('en-IN'),
       ];
     });
@@ -194,6 +248,119 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error('Error deleting lead:', error);
       alert('Failed to delete lead. Please try again.');
+    }
+  };
+
+  // Bulk action handlers
+  const handleSelectLead = (leadId: string) => {
+    const newSelected = new Set(selectedLeads);
+    if (newSelected.has(leadId)) {
+      newSelected.delete(leadId);
+    } else {
+      newSelected.add(leadId);
+    }
+    setSelectedLeads(newSelected);
+  };
+
+  const handleSelectAll = (repLeads: LeadWithDetails[]) => {
+    const repLeadIds = repLeads.map(lead => lead.id);
+    const allSelected = repLeadIds.every(id => selectedLeads.has(id));
+
+    const newSelected = new Set(selectedLeads);
+    if (allSelected) {
+      // Deselect all
+      repLeadIds.forEach(id => newSelected.delete(id));
+    } else {
+      // Select all
+      repLeadIds.forEach(id => newSelected.add(id));
+    }
+    setSelectedLeads(newSelected);
+  };
+
+  const handleBulkDelete = () => {
+    // Get all selected leads data
+    const leadsToDelete: LeadWithDetails[] = [];
+    salesReps.forEach(rep => {
+      rep.leads.forEach(lead => {
+        if (selectedLeads.has(lead.id)) {
+          leadsToDelete.push(lead);
+        }
+      });
+    });
+
+    // Store deleted leads for undo
+    setDeletedLeads(leadsToDelete);
+
+    // Remove from UI optimistically
+    const newSalesReps = salesReps.map(rep => ({
+      ...rep,
+      leads: rep.leads.filter(lead => !selectedLeads.has(lead.id)),
+    }));
+    setSalesReps(newSalesReps);
+
+    // Clear selection
+    setSelectedLeads(new Set());
+
+    // Show undo toast
+    setShowUndoToast(true);
+
+    // Set timeout for actual deletion
+    if (undoTimeoutId) {
+      clearTimeout(undoTimeoutId);
+    }
+
+    const timeoutId = setTimeout(() => {
+      performBulkDelete(leadsToDelete.map(lead => lead.id));
+      setShowUndoToast(false);
+      setDeletedLeads([]);
+    }, 5000);
+
+    setUndoTimeoutId(timeoutId);
+  };
+
+  const handleUndoDelete = () => {
+    // Cancel the deletion timeout
+    if (undoTimeoutId) {
+      clearTimeout(undoTimeoutId);
+      setUndoTimeoutId(null);
+    }
+
+    // Restore deleted leads
+    const restoredLeadIds = new Set(deletedLeads.map(lead => lead.id));
+    const newSalesReps = salesReps.map(rep => {
+      const restoredForThisRep = deletedLeads.filter(lead => lead.sales_rep_id === rep.id);
+      return {
+        ...rep,
+        leads: [...rep.leads, ...restoredForThisRep],
+      };
+    });
+
+    setSalesReps(newSalesReps);
+    setDeletedLeads([]);
+    setShowUndoToast(false);
+  };
+
+  const performBulkDelete = async (leadIds: string[]) => {
+    try {
+      const response = await fetch('/api/admin/leads/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ leadIds }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(`Failed to delete leads: ${data.error || 'Unknown error'}`);
+        // Refresh to restore data
+        fetchAllLeads();
+      }
+    } catch (error) {
+      console.error('Error deleting leads:', error);
+      alert('Failed to delete leads. Please try again.');
+      // Refresh to restore data
+      fetchAllLeads();
     }
   };
 
@@ -503,6 +670,14 @@ export default function AdminDashboardPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
+                          <th className="px-4 py-3 text-center font-semibold text-gray-700 w-12">
+                            <input
+                              type="checkbox"
+                              checked={rep.leads.length > 0 && rep.leads.every(lead => selectedLeads.has(lead.id))}
+                              onChange={() => handleSelectAll(rep.leads)}
+                              className="w-4 h-4 cursor-pointer"
+                            />
+                          </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Customer
                           </th>
@@ -528,7 +703,13 @@ export default function AdminDashboardPage() {
                             Reason
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Review Status
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Lead Score
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Incentive
                           </th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-700">
                             Date
@@ -545,6 +726,15 @@ export default function AdminDashboardPage() {
 
                           return (
                             <tr key={lead.id} className={`border-t hover:opacity-90 ${rowClass}`}>
+                              <td className="px-4 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLeads.has(lead.id)}
+                                  onChange={() => handleSelectLead(lead.id)}
+                                  className="w-4 h-4 cursor-pointer"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
                               <td className="px-4 py-3 text-gray-900">{lead.customer_name}</td>
                               <td className="px-4 py-3 text-gray-900">{lead.customer_phone}</td>
                               <td className="px-4 py-3">
@@ -586,7 +776,64 @@ export default function AdminDashboardPage() {
                                 )}
                               </td>
                               <td className="px-4 py-3">
+                                {isWin ? (
+                                  lead.review_status === 'reviewed' ? (
+                                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                      ✓ Reviewed
+                                    </span>
+                                  ) : lead.review_status === 'yet_to_review' ? (
+                                    <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">
+                                      ⏳ Yet to Review
+                                    </span>
+                                  ) : (
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">
+                                      ⌛ Pending
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
                                 <LeadScoreBadge lead={lead} />
+                              </td>
+                              <td className="px-4 py-3">
+                                {!isWin || lead.review_status === 'pending' || lead.review_status === 'yet_to_review' ? (
+                                  // Lost leads OR Win leads not yet reviewed - always show "No"
+                                  <span className="text-gray-500">No</span>
+                                ) : lead.has_incentive === null || lead.has_incentive === undefined ? (
+                                  // Initial state - show Yes/No buttons (Win leads with review_status === 'reviewed' only)
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await handleIncentiveUpdate(lead.id, false);
+                                      }}
+                                      className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-xs font-semibold"
+                                    >
+                                      No
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLead(lead);
+                                        setIncentiveAmount('');
+                                        setShowIncentiveModal(true);
+                                      }}
+                                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold"
+                                    >
+                                      Yes
+                                    </button>
+                                  </div>
+                                ) : lead.has_incentive === false ? (
+                                  // No incentive
+                                  <span className="text-gray-600">No</span>
+                                ) : (
+                                  // Show amount
+                                  <span className="text-green-600 font-semibold">
+                                    ₹{lead.incentive_amount?.toLocaleString('en-IN')}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-gray-500">
                                 {formatDate(lead.created_at)}
@@ -616,6 +863,149 @@ export default function AdminDashboardPage() {
           </>
         )}
       </div>
+
+      {/* Incentive Modal */}
+      {showIncentiveModal && selectedLead && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Set Incentive Amount</h3>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Customer:</span>
+                <span className="font-semibold text-gray-900">{selectedLead.customer_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Category:</span>
+                <span className="font-semibold text-gray-900">{selectedLead.category_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-900 font-medium">Amount:</span>
+                <span className="font-semibold text-green-600">
+                  ₹{(selectedLead.sale_price || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Incentive Amount
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600 text-lg">₹</span>
+                <input
+                  type="number"
+                  value={incentiveAmount}
+                  onChange={(e) => setIncentiveAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowIncentiveModal(false);
+                  setSelectedLead(null);
+                  setIncentiveAmount('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const amount = parseFloat(incentiveAmount);
+                  if (!isNaN(amount) && amount > 0) {
+                    const success = await handleIncentiveUpdate(selectedLead.id, true, amount);
+                    if (success) {
+                      setShowIncentiveModal(false);
+                      setSelectedLead(null);
+                      setIncentiveAmount('');
+                    }
+                  } else {
+                    alert('Please enter a valid amount');
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Bar */}
+      {selectedLeads.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-in-out">
+          <div className="bg-gray-900 text-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-6">
+            <span className="font-semibold text-lg">
+              {selectedLeads.size} lead{selectedLeads.size > 1 ? 's' : ''} selected
+            </span>
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Delete
+            </button>
+            <button
+              onClick={() => setSelectedLeads(new Set())}
+              className="text-gray-300 hover:text-white font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Toast */}
+      {showUndoToast && (
+        <div className="fixed bottom-6 right-6 z-50 transition-all duration-300 ease-in-out">
+          <div className="bg-gray-900 text-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-4 min-w-[300px]">
+            <svg
+              className="w-6 h-6 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <div className="flex-1">
+              <p className="font-semibold">
+                {deletedLeads.length} lead{deletedLeads.length > 1 ? 's' : ''} deleted
+              </p>
+              <p className="text-sm text-gray-400">Action will complete in 5 seconds</p>
+            </div>
+            <button
+              onClick={handleUndoDelete}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-semibold transition-colors"
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,18 +6,16 @@ export async function GET(request: NextRequest) {
   try {
     const organizationId = request.headers.get('x-organization-id');
 
-    if (!organizationId) {
-      return NextResponse.json<APIResponse>(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // If no organization ID is provided, try to get the first organization's logo
+    let query = supabaseAdmin.from('organizations').select('logo_url');
+
+    if (organizationId) {
+      query = query.eq('id', organizationId);
+    } else {
+      console.log('⚠️ No organization ID provided, fetching first organization logo');
     }
 
-    const { data: organization, error } = await supabaseAdmin
-      .from('organizations')
-      .select('logo_url')
-      .eq('id', organizationId)
-      .single();
+    const { data: organization, error } = await query.single();
 
     if (error) {
       console.error('Error fetching organization logo:', error);

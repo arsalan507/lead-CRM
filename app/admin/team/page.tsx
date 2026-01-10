@@ -17,6 +17,7 @@ export default function AdminTeamPage() {
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
   const [newMemberPin, setNewMemberPin] = useState('');
+  const [addingRole, setAddingRole] = useState<'admin' | 'sales_rep'>('sales_rep');
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [resetNewPin, setResetNewPin] = useState('');
   const [resetting, setResetting] = useState(false);
@@ -53,17 +54,20 @@ export default function AdminTeamPage() {
           name: newMemberName,
           phone: newMemberPhone,
           pin: newMemberPin,
+          role: addingRole,
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert(`Sales rep added successfully!\n\nThey can now login with:\nPhone: ${newMemberPhone}\nPIN: ${newMemberPin}`);
+        const roleLabel = addingRole === 'admin' ? 'Admin' : 'Sales rep';
+        alert(`${roleLabel} added successfully!\n\nThey can now login with:\nPhone: ${newMemberPhone}\nPIN: ${newMemberPin}`);
         setTeamMembers([data.data.user, ...teamMembers]);
         setNewMemberName('');
         setNewMemberPhone('');
         setNewMemberPin('');
+        setAddingRole('sales_rep');
         setShowAddForm(false);
       } else {
         alert(data.error || 'Failed to add team member');
@@ -136,20 +140,36 @@ export default function AdminTeamPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Add New Member Button */}
+        {/* Add New Member Buttons */}
         {!showAddForm && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700 mb-6"
-          >
-            + Add Sales Rep
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <button
+              onClick={() => {
+                setAddingRole('sales_rep');
+                setShowAddForm(true);
+              }}
+              className="bg-blue-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-blue-700"
+            >
+              + Add Sales Rep
+            </button>
+            <button
+              onClick={() => {
+                setAddingRole('admin');
+                setShowAddForm(true);
+              }}
+              className="bg-purple-600 text-white rounded-lg py-4 px-6 text-lg font-semibold hover:bg-purple-700"
+            >
+              + Add Admin
+            </button>
+          </div>
         )}
 
         {/* Add Member Form */}
         {showAddForm && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Add New Sales Rep</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              Add New {addingRole === 'admin' ? 'Admin' : 'Sales Rep'}
+            </h2>
             <form onSubmit={handleAddMember} className="space-y-4">
               <div>
                 <label className="block text-gray-700 font-medium mb-2">
@@ -160,7 +180,7 @@ export default function AdminTeamPage() {
                   value={newMemberName}
                   onChange={(e) => setNewMemberName(e.target.value)}
                   className="w-full rounded-lg border-2 border-gray-300 p-3 focus:border-blue-500 focus:outline-none"
-                  placeholder="Enter sales rep name"
+                  placeholder={`Enter ${addingRole === 'admin' ? 'admin' : 'sales rep'} name`}
                   required
                 />
               </div>
@@ -200,7 +220,7 @@ export default function AdminTeamPage() {
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  This PIN will be used for login. Share it securely with the sales rep.
+                  This PIN will be used for login. Share it securely with the {addingRole === 'admin' ? 'admin' : 'sales rep'}.
                 </p>
               </div>
 
@@ -212,6 +232,7 @@ export default function AdminTeamPage() {
                     setNewMemberName('');
                     setNewMemberPhone('');
                     setNewMemberPin('');
+                    setAddingRole('sales_rep');
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 rounded-lg py-3 px-6 font-semibold hover:bg-gray-400"
                 >

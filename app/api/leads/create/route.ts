@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
         ...leadData,
         invoice_no: invoiceNo.trim(),
         sale_price: price,
+        review_status: 'pending', // Initialize as pending for WIN leads
         // Set Lost fields to null for Win leads
         deal_size: null,
         model_id: null,
@@ -241,21 +242,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Lead created successfully:', lead.id);
-
-    // CRITICAL: Only trigger WhatsApp for LOST leads
-    if (status === 'lost') {
-      // Trigger WhatsApp message in background (don't wait for it)
-      fetch(`${request.nextUrl.origin}/api/whatsapp/send-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-organization-id': organizationId,
-        },
-        body: JSON.stringify({ leadId: lead.id }),
-      }).catch((err) => console.error('WhatsApp trigger error:', err));
-    } else {
-      console.log('Skipping WhatsApp for Win lead');
-    }
 
     return NextResponse.json<APIResponse>(
       {

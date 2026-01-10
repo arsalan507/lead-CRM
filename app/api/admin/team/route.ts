@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { phone, name, pin } = body;
+    const { phone, name, pin, role = 'sales_rep' } = body;
 
     // Validation
     if (!phone || !isValidPhone(phone)) {
@@ -84,6 +84,14 @@ export async function POST(request: NextRequest) {
     if (!pin || !isValidPIN(pin)) {
       return NextResponse.json<APIResponse>(
         { success: false, error: 'PIN must be 4 digits' },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    if (!['admin', 'sales_rep'].includes(role)) {
+      return NextResponse.json<APIResponse>(
+        { success: false, error: 'Invalid role. Must be admin or sales_rep' },
         { status: 400 }
       );
     }
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
       .insert({
         phone,
         name: name.trim(),
-        role: 'sales_rep',
+        role: role,
         organization_id: organizationId,
         pin_hash: pinHash,
       })
@@ -126,9 +134,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const roleLabel = role === 'admin' ? 'Admin' : 'Sales rep';
     return NextResponse.json<APIResponse>({
       success: true,
-      message: 'Sales rep added successfully. They can now login with their phone and PIN.',
+      message: `${roleLabel} added successfully. They can now login with their phone and PIN.`,
       data: {
         user: {
           id: newUser.id,
